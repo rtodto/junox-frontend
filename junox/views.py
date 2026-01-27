@@ -4,6 +4,7 @@ from django.core.paginator import Paginator
 import requests
 from .services import *
 from django.conf import settings
+from django.utils.safestring import mark_safe
 
 API_URL = settings.API_URL
 
@@ -212,18 +213,28 @@ def add_device_view(request):
         # 2. Call the service
         result = service_add_device(token, hostname, user, pwd)
 
-        # 3. Handle the result
         if result["success"]:
-            messages.success(request, f"Device {hostname} registration request has been sent successfully! JOB-ID: {result['data']}")
-            return redirect('junox:device_dashboard')
+            # Extract the specific fields from the dictionary
+            job_id = result["data"].get('job_id')
+            monitor_url = result["data"].get('monitor_url')
 
-        else:
-            # Return to the form with the specific error message
+            monitor_url = settings.JUNOX_FRONTEND_URL + "/junox/jobs_list/?q=" + job_id
+            # Format a professional HTML message
+            # job_id[:8] just shows the first 8 characters of the UUID to keep it tidy
+            message_html = mark_safe(
+                f"Device <strong>{hostname}</strong> registration sent successfully! "
+                f"JOB-ID: <span class='font-mono text-xs'>{job_id[:8]}</span> "
+                f"<a href='{monitor_url}' target='_blank' class='ml-2 underline text-blue-400 font-bold'>"
+                f"View Progress</a>"
+            )
+
+            messages.success(request, message_html)
             return render(request, 'junox/add_device.html', {
-                'error': result["error"],
-                'hostname': hostname, # keep the input so they don't have to retype
-                'username': user
+                'job_id': job_id,
+                'monitor_url': monitor_url
             })
+        else:
+            messages.error(request, result["error"])    
 
     return render(request, 'junox/add_device.html')
 

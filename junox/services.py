@@ -125,10 +125,10 @@ def service_add_device(token, hostname, username, password):
         }
 
     try:
-        response = requests.post(url, headers=headers, data=payload, timeout=15)
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
         
         # Return a dictionary so the view knows exactly what happened
-        if response.status_code in [200, 201]:
+        if response.status_code in [200, 201,202]:
             return {"success": True, "data": response.json()}
         else:
             # Capture the error message from FastAPI if available

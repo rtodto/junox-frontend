@@ -146,6 +146,43 @@
 
 <script>
 
+    {% if request.GET.q %}
+    //to force update the page if the job is still running
+    (function () {
+        // 1. Get the current status from your table
+        // We look for the row that has your Job ID in it
+        const jobId = "{{ request.GET.q }}";
+        const rows = document.querySelectorAll('tr');
+        let currentStatus = "";
+
+        rows.forEach(row => {
+            if (row.innerText.includes(jobId)) {
+                // Assuming your status is in a <td>. Let's find it.
+                // This targets common status keywords in that specific row
+                currentStatus = row.innerText.toLowerCase();
+            }
+        });
+
+        // 2. Define exactly what "Still Working" looks like
+        const isRunning = currentStatus.includes('queued') ||
+            currentStatus.includes('started') ||
+            currentStatus.includes('pending') ||
+            currentStatus.includes('running');
+
+        // 3. Logic: If it's running, or if we can't find the row yet (still being created)
+        if (isRunning || currentStatus === "") {
+            console.log("Monitoring Job " + jobId + "... Refreshing in 2s");
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            console.log("Job finished with status: " + currentStatus);
+        }
+    })();
+
+    {% endif %}
+
+
     let refreshInterval;
 
     function updateRefreshInterval() {

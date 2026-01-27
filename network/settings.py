@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv() # Ensure this is at the top
 API_ROOT = "http://127.0.0.1:8000" # For Metadata/OpenAPI
 API_URL = f"{API_ROOT}/api/v1"      # For Functional Calls
-
+JUNOX_FRONTEND_URL = "http://127.0.0.1:8001"
 
 
 

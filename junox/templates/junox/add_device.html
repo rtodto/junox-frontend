@@ -17,7 +17,20 @@
     </div>
     {% endif %}
 
-
+    {% if messages %}
+    <div class="space-y-4 mb-6">
+        {% for message in messages %}
+        <div
+            class="p-4 rounded-xl border {% if message.tags == 'success' %} bg-emerald-500/10 border-emerald-500/50 text-emerald-200 {% else %} bg-red-500/10 border-red-500/50 text-red-200 {% endif %} flex items-center shadow-lg">
+            <span class="mr-3">
+                {% if message.tags == 'success' %} ✅ {% else %} ⚠️ {% endif %}
+            </span>
+            <span class="text-sm">
+                {{ message|safe }} </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-8">
         <form method="POST" class="space-y-6">

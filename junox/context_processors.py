@@ -9,28 +9,27 @@ def api_version_info(request):
     Returns a dictionary available in all templates as {{ api_info }}.
     """
 
-    url = f"{settings.API_ROOT}/openapi.json"
+    url = f"{settings.API_ROOT}/health"
     
     try:
         # Short timeout (0.5s) so page loads aren't delayed if API is down
         response = requests.get(url, timeout=0.5)
         if response.status_code == 200:
             data = response.json()
-            version = data.get('info', {}).get('version', '0.0.0')
+            version = data.get('version')
             return {
                 'api_info': {
                     'version': f"v{version}",
-                    'title': data.get('info', {}).get('title', 'JunoX API'),
-                    'status': 'online'
+                    'title': 'JunoX API',
+                    'status': data.get('status')
                 }
+
             }
     except Exception:
         pass
 
     return {
-        'api_info': {
-            'version': "Offline",
-            'title': 'JunoX API',
-            'status': 'offline'
-        }
+ 
+        'api_info': {'version': 'Offline', 'title': 'JunoX API', 'status': 'offline'}
+
     }
