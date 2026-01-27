@@ -1,0 +1,199 @@
+{% extends 'junox/base.html' %}
+
+{% block content %}
+<div class="mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+    <div>
+        <h2 class="text-3xl font-bold text-white tracking-tight">Automation Jobs</h2>
+        <div class="flex items-center gap-2 mt-1">
+            <p class="text-slate-400">Track real-time status of device tasks.</p>
+            <span id="refreshTimer"
+                class="hidden text-[10px] font-mono bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30 animate-pulse">
+                Auto-refreshing...
+            </span>
+        </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2">
+            <span class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Refresh</span>
+            <select id="autoRefreshSelector" onchange="updateRefreshInterval()"
+                class="bg-transparent text-sm text-white outline-none cursor-pointer">
+                <option value="0" class="bg-slate-900">Off</option>
+                <option value="5000" class="bg-slate-900">5s</option>
+                <option value="10000" class="bg-slate-900">10s</option>
+                <option value="30000" class="bg-slate-900">30s</option>
+            </select>
+        </div>
+
+        <form method="GET" class="flex items-center gap-2">
+            <div class="relative">
+                <span class="absolute inset-y-0 left-3 flex items-center text-slate-500">🔍</span>
+                <input type="text" name="q" value="{{ search_query|default:'' }}" placeholder="Search ID or IP..."
+                    class="bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none w-48 lg:w-64 transition-all">
+            </div>
+            <button type="submit"
+                class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                Filter
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+    <table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="bg-slate-800/50 border-b border-slate-800 text-slate-400 text-xs uppercase tracking-widest">
+                <th class="px-6 py-4 font-semibold">Job ID</th>
+                <th class="px-6 py-4 font-semibold">Task</th>
+                <th class="px-6 py-4 font-semibold">Target</th>
+                <th class="px-6 py-4 font-semibold">Status</th>
+
+                <th class="px-6 py-4 font-semibold">
+                    <a href="?q={{ search_query|default:'' }}&sort=created_at&order={% if current_sort == 'created_at' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
+                        class="flex items-center gap-1 hover:text-white transition-colors">
+                        Created {% if current_sort == 'created_at' %}{% if current_order == 'desc' %}↓{% else %}↑
+                        {%endif %}{% endif %}
+                    </a>
+                </th>
+                <th class="px-6 py-4 font-semibold">
+                    <a href="?q={{ search_query|default:'' }}&sort=ended_at&order={% if current_sort == 'ended_at' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
+                        class="flex items-center gap-1 hover:text-white transition-colors">
+                        Finished {% if current_sort == 'ended_at' %}
+                        {% if current_order == 'desc' %}↓{% else %}↑{%endif%}{% endif %}
+                    </a>
+                </th>
+                <th class="px-6 py-4 text-right">Details</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800 text-slate-300">
+            {% if jobs %}
+            {% for job in jobs %}
+            <tr class="hover:bg-slate-800/50 cursor-pointer transition-colors group"
+                onclick="showJobDetails('{{ job.id|escapejs }}', '{{ job.task_type|escapejs }}', '{{ job.status|escapejs }}', `{{ job.result|escapejs }}`)">
+                <td class="px-6 py-4 font-mono text-sm text-blue-400 font-semibold">#{{ job.id|truncatechars:12 }}</td>
+                <td class="px-6 py-4 font-medium text-slate-200">{{ job.task_type }}</td>
+                <td class="px-6 py-4 text-slate-400 font-mono text-sm">{{ job.target }}</td>
+                <td class="px-6 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                            {% if job.status == 'completed' %} bg-green-500/10 text-green-500 border border-green-500/20 
+                            {% elif job.status == 'running' %} bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse 
+                            {% else %} bg-red-500/10 text-red-500 border border-red-500/20 {% endif %}">
+                        {{ job.status|title }}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-slate-500 text-xs">{{ job.created_at }}</td>
+                <td class="px-6 py-4 text-slate-500 text-xs">{{ job.ended_at|default:"--" }}</td>
+                <td class="px-6 py-4 text-right text-slate-600 group-hover:text-blue-400 transition-colors">🔍</td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="7" class="px-6 py-20 text-center">
+                    <p class="text-slate-500 italic">No matching jobs found.</p>
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    {% if jobs.has_other_pages %}
+    <div class="bg-slate-900/80 px-6 py-4 border-t border-slate-800 flex items-center justify-between">
+        <span class="text-sm text-slate-500">Page {{ jobs.number }} of {{ jobs.paginator.num_pages }}</span>
+        <div class="flex gap-2">
+            {% if jobs.has_previous %}
+            <a href="?page={{ jobs.previous_page_number }}&q={{ search_query|default:'' }}&sort={{ current_sort }}&order={{ current_order }}"
+                class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg border border-slate-700 hover:bg-slate-700 transition-all text-sm">&larr;
+                Previous</a>
+            {% endif %}
+            {% if jobs.has_next %}
+            <a href="?page={{ jobs.next_page_number }}&q={{ search_query|default:'' }}&sort={{ current_sort }}&order={{ current_order }}"
+                class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg border border-slate-700 hover:bg-slate-700 transition-all text-sm">Next
+                &rarr;</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div id="jobModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm" onclick="closeModal()"></div>
+    <div class="relative min-h-screen flex items-center justify-center p-4">
+        <div
+            class="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
+                <div>
+                    <h3 id="modalTitle" class="text-xl font-bold text-white">Job Details</h3>
+                    <p id="modalID" class="text-blue-400 font-mono text-xs mt-2 uppercase tracking-widest"></p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div class="p-6 overflow-y-auto">
+                <div class="mb-6"><span id="modalStatus"
+                        class="px-3 py-1 bg-slate-800 rounded border border-slate-700 text-xs font-bold text-white uppercase"></span>
+                </div>
+                <h4 class="text-slate-300 text-sm font-semibold mb-3">Execution Logs & Output</h4>
+                <pre id="modalResult"
+                    class="bg-black/50 p-6 rounded-xl text-green-400 font-mono text-xs overflow-x-auto whitespace-pre-wrap border border-slate-800 leading-relaxed"></pre>
+            </div>
+            <div class="p-4 border-t border-slate-800 text-right bg-slate-800/30">
+                <button onclick="closeModal()"
+                    class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-all">Close
+                    Details</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    let refreshInterval;
+
+    function updateRefreshInterval() {
+        const selector = document.getElementById('autoRefreshSelector');
+        const timerLabel = document.getElementById('refreshTimer');
+        const intervalTime = parseInt(selector.value);
+
+        // Clear existing interval
+        if (refreshInterval) clearInterval(refreshInterval);
+
+        // Save preference to localStorage so it stays active on reload
+        localStorage.setItem('jobRefreshPref', intervalTime);
+
+        if (intervalTime > 0) {
+            timerLabel.classList.remove('hidden');
+            refreshInterval = setInterval(() => {
+                // If a modal is open, don't refresh (it would close the modal)
+                const isModalOpen = !document.getElementById('jobModal').classList.contains('hidden');
+                if (!isModalOpen) {
+                    window.location.reload();
+                }
+            }, intervalTime);
+        } else {
+            timerLabel.classList.add('hidden');
+        }
+    }
+
+    // Initialize on page load
+    window.onload = function () {
+        const savedPref = localStorage.getItem('jobRefreshPref');
+        if (savedPref) {
+            document.getElementById('autoRefreshSelector').value = savedPref;
+            updateRefreshInterval();
+        }
+    };
+
+    function showJobDetails(id, task, status, result) {
+        document.getElementById('modalTitle').innerText = task;
+        document.getElementById('modalID').innerText = '#' + id;
+        document.getElementById('modalStatus').innerText = status;
+        document.getElementById('modalResult').innerText = result && result !== 'None' ? result : "No execution logs available.";
+        document.getElementById('jobModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+        document.getElementById('jobModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+</script>
+{% endblock %}

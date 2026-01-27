@@ -1,0 +1,134 @@
+{% extends 'junox/base.html' %}
+
+{% block content %}
+
+<!-- {{device_interfaces}} -->
+
+{% if messages %}
+<div class="space-y-4 mb-6">
+    {% for message in messages %}
+    <div
+        class="flex items-center p-4 rounded-lg border {% if message.tags == 'success' %} bg-green-500/10 border-green-500/50 text-green-400 {% else %} bg-red-500/10 border-red-500/50 text-red-400 {% endif %}">
+        <span class="mr-3">
+            {% if message.tags == 'success' %} ✅ {% else %} ⚠️ {% endif %}
+        </span>
+        <p class="text-sm font-medium">{{ message }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="mb-8">
+    <nav class="flex text-slate-500 text-[10px] uppercase tracking-widest mb-2">
+        <a href="{% url 'junox:device_dashboard' %}" class="hover:text-blue-400">Inventory</a>
+        <span class="mx-2">/</span>
+        <span class="text-slate-300">{{ hostname }} </span>
+    </nav>
+    <h2 class="text-3xl font-bold text-white tracking-tight">{{ hostname }}</h2>
+    <p class="text-slate-400 text-sm mt-1 font-mono">Physical Interface Configuration</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+    <div class="p-6 border-b border-slate-800 bg-slate-800/30">
+        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+            <span class="text-blue-500 text-lg">🔌</span> Interface Management
+        </h3>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr
+                    class="bg-slate-900/50 text-slate-500 text-[10px] uppercase tracking-widest border-b border-slate-800">
+                    <th class="px-6 py-4 font-semibold">Port Name</th>
+                    <th class="px-6 py-4 font-semibold">Admin</th>
+                    <th class="px-6 py-4 font-semibold">Operational</th>
+                    <th class="px-6 py-4 font-semibold text-center">Mode</th>
+                    <th class="px-6 py-4 font-semibold">MAC Address</th>
+                    <th class="px-6 py-4 font-semibold">Description</th>
+                    <th class="px-6 py-4 font-semibold text-right">Assign VLAN</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800 text-slate-300">
+                {% if device_interfaces %}
+                {% for iface in device_interfaces %}
+                <tr class="hover:bg-slate-800/40 transition-colors">
+                    <td class="px-6 py-4 font-mono text-sm text-blue-400 font-bold">
+                        {{ iface.interface_name }}
+                    </td>
+
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border 
+                                {% if iface.admin_status == 'up' %} border-green-500/30 bg-green-500/10 text-green-500 
+                                {% else %} border-red-500/30 bg-red-500/10 text-red-400 {% endif %}">
+                            {{ iface.admin_status }}
+                        </span>
+                    </td>
+
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2 text-xs">
+                            <span
+                                class="w-2 h-2 rounded-full {% if iface.oper_status == 'up' %} bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] {% else %} bg-slate-600 {% endif %}"></span>
+                            <span class="uppercase font-medium text-slate-400">{{ iface.oper_status }}</span>
+                        </div>
+                    </td>
+
+                    <td class="px-6 py-4 text-center">
+                        {% if iface.interface_tagness == 'tagged' %}
+                        <span
+                            class="px-2 py-1 rounded text-[10px] font-black uppercase bg-purple-600/20 text-purple-400 border border-purple-500/50 shadow-sm shadow-purple-900/20">
+                            Trunk
+                        </span>
+                        {% else %}
+                        <span
+                            class="px-2 py-1 rounded text-[10px] font-bold uppercase bg-slate-800 text-slate-500 border border-slate-700">
+                            Access
+                        </span>
+                        {% endif %}
+                    </td>
+
+                    <td class="px-6 py-4 font-mono text-xs text-slate-500">
+                        {{ iface.mac_address|default:"--" }}
+                    </td>
+
+                    <td class="px-6 py-4 text-xs text-slate-400 max-w-xs truncate">
+                        {{ iface.description|default:"--" }}
+                    </td>
+
+                    <td class="px-6 py-4 text-right">
+                        <form method="POST" action="{% url 'junox:assign_vlan' %}"
+                            class="flex items-center justify-end gap-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="interface_name" value="{{ iface.interface_name }}">
+                            <input type="hidden" name="hostname" value="{{ hostname }}">
+                            <input type="hidden" name="device_id" value="{{ device_id }}">
+
+                            <select name="vlan_id"
+                                class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer">
+                                <option value="">Select VLAN</option>
+                                {% for vlan in vlan_list %}
+                                <option value="{{ vlan.vlan_id }}">{{ vlan.vlan_id }} - {{ vlan.vlan_name }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <button type="submit"
+                                onclick="this.form.submit(); this.disabled=true; this.innerHTML='<span class=\'animate-pulse\'>🔄 Processing...</span>'; this.classList.add('opacity-50','cursor-not-allowed');"
+                                class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-[10px] font-bold uppercase transition-all shadow-lg shadow-blue-900/20">
+                                Apply
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" class="px-6 py-20 text-center text-slate-500 italic">No interface data available.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,196 @@
+{% extends 'junox/base.html' %}
+
+{% block content %}
+<div class="mb-8 flex items-center justify-between">
+    <div>
+        <h2 class="text-3xl font-bold text-white tracking-tight">Device Inventory</h2>
+        <p class="text-slate-400 mt-1">Manage and monitor your Junos network assets.</p>
+    </div>
+
+</div>
+
+{% if messages %}
+<div class="space-y-4 mb-6">
+    {% for message in messages %}
+    <div
+        class="flex items-center p-4 rounded-lg border {% if message.tags == 'success' %} bg-green-500/10 border-green-500/50 text-green-400 {% else %} bg-red-500/10 border-red-500/50 text-red-400 {% endif %}">
+        <span class="mr-3">
+            {% if message.tags == 'success' %} ✅ {% else %} ⚠️ {% endif %}
+        </span>
+        <p class="text-sm font-medium">{{ message }}</p>
+        <button type="button" class="ml-auto text-slate-400 hover:text-white" onclick="this.parentElement.remove()">
+            &times;
+        </button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="mb-6 bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+    <form method="GET" class="flex items-center gap-4">
+        <div class="relative flex-1">
+            <span class="absolute inset-y-0 left-3 flex items-center text-slate-500">🔍</span>
+            <input type="text" name="q" value="{{ search_query|default:'' }}"
+                placeholder="Search by Hostname, IP, Model, or Serial Number..."
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+        </div>
+        <button type="submit"
+            class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all">
+            Filter
+        </button>
+        {% if search_query %}
+        <a href="{% url 'junox:device_dashboard' %}" class="text-xs text-slate-500 hover:text-white underline">Clear
+            Results</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+    <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse min-w-[1200px]">
+            <thead>
+                <tr
+                    class="bg-slate-800/50 border-b border-slate-800 text-slate-400 text-[10px] uppercase tracking-widest">
+                    <th class="px-6 py-4 font-semibold">ID</th>
+                    <th class="px-6 py-4 font-semibold">Hostname</th>
+                    <th class="px-6 py-4 font-semibold">IP Address</th>
+                    <th class="px-6 py-4 font-semibold">Type</th>
+                    <th class="px-6 py-4 font-semibold">Brand</th>
+                    <th class="px-6 py-4 font-semibold">Model</th>
+                    <th class="px-6 py-4 font-semibold">OS Version</th>
+                    <th class="px-6 py-4 font-semibold">Serial Number</th>
+                    <th class="px-6 py-4 font-semibold text-center">Status</th>
+                    <th class="px-6 py-4 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800 text-slate-300">
+                {% if device_list %}
+                {% for device in device_list %}
+                <tr class="hover:bg-slate-800/30 transition-colors group">
+                    <td class="px-6 py-4 text-slate-500 font-mono text-xs">#{{ device.id }}</td>
+
+                    <td class="px-6 py-4">
+                        <a href="{% url 'junox:device_detail' device.id device.hostname %}"
+                            class="text-blue-400 font-semibold group-hover:text-blue-300 transition-colors">
+                            {{ device.hostname }}
+                        </a>
+                    </td>
+
+                    <td class="px-6 py-4 font-mono text-sm tracking-tighter">{{ device.ip_address }}</td>
+
+                    <td class="px-6 py-4">
+                        <span
+                            class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-800 border border-slate-700 text-slate-400">
+                            {{ device.type }}
+                        </span>
+                    </td>
+
+                    <td class="px-6 py-4">
+                        <span class="text-xs text-slate-200 capitalize font-medium">{{ device.brand }}</span>
+                    </td>
+
+                    <td class="px-6 py-4 text-sm">{{ device.model }}</td>
+
+                    <td class="px-6 py-4">
+                        <span class="text-xs text-green-500 font-mono bg-green-500/5 px-1.5 py-0.5 rounded">
+                            {{ device.os_version }}
+                        </span>
+                    </td>
+
+                    <td class="px-6 py-4 font-mono text-xs text-slate-500 tracking-wider">
+                        {{ device.serialnumber }}
+                    </td>
+
+                    <td class="px-6 py-4 text-center">
+                        <span
+                            class="inline-flex items-center gap-1.5 py-1 px-2 rounded-md bg-green-500/10 text-green-500 text-xs font-medium border border-green-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                            Online
+                        </span>
+                    </td>
+
+                    <td class="px-6 py-4 text-right">
+                        <button
+                            class="text-slate-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100">⚙️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="10" class="px-6 py-20 text-center text-slate-500 italic">No matching devices found.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="bg-slate-900/80 px-6 py-4 border-t border-slate-800 flex items-center justify-between">
+        <div class="text-sm text-slate-500">
+            Showing <span class="text-slate-300 font-medium">{{ device_list|length }}</span>
+            of <span class="text-slate-300 font-medium">{{ total_count }}</span>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <nav class="flex items-center gap-1">
+                {% if has_prev %}
+                <a href="?page={{ prev_page }}&q={{ search_query|default:'' }}"
+                    class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700 transition-colors">&larr;</a>
+                {% endif %}
+
+                {% for p in page_range %}
+                {% if p == current_page %}
+                <span
+                    class="px-3 py-1.5 bg-blue-600 text-white font-bold rounded-md border border-blue-500 shadow-lg shadow-blue-900/20">
+                    {{ p }}
+                </span>
+                {% else %}
+                <a href="?page={{ p }}&q={{ search_query|default:'' }}"
+                    class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-md border border-slate-700 transition-colors">
+                    {{ p }}
+                </a>
+                {% endif %}
+                {% endfor %}
+
+                {% if has_next %}
+                <a href="?page={{ next_page }}&q={{ search_query|default:'' }}"
+                    class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700 transition-colors">&rarr;</a>
+                {% endif %}
+            </nav>
+
+            <form method="GET" class="flex items-center gap-2 border-l border-slate-800 pl-6">
+                <input type="hidden" name="q" value="{{ search_query|default:'' }}">
+
+                <span class="text-xs text-slate-500 uppercase font-semibold tracking-wider">Jump to</span>
+                <select name="page" onchange="this.form.submit()"
+                    class="bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-xs text-white focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer hover:bg-slate-700 transition-all">
+                    {% for p_obj in page_numbers_all %}
+                    <option value="{{ p_obj.num }}" {{ p_obj.status }}>
+                        Page {{ p_obj.num }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #0f172a;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #1e293b;
+        border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #334155;
+    }
+</style>
+{% endblock %}
