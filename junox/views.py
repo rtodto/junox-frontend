@@ -222,10 +222,12 @@ def add_device_view(request):
             # Format a professional HTML message
             # job_id[:8] just shows the first 8 characters of the UUID to keep it tidy
             message_html = mark_safe(
-                f"Device <strong>{hostname}</strong> registration sent successfully! "
-                f"JOB-ID: <span class='font-mono text-xs'>{job_id[:8]}</span> "
+                f"Device <strong>{hostname}</strong> registration request dispatched successfully with "
+                f"<strong>JOB-ID:</strong> "
+                # f"<span class='font-mono text-xs'>{job_id[:8]}</span> "
                 f"<a href='{monitor_url}' target='_blank' class='ml-2 underline text-blue-400 font-bold'>"
-                f"View Progress</a>"
+                f"{job_id[:8]}</a>"
+                f"<br>You can watch the live progress below"
             )
 
             messages.success(request, message_html)

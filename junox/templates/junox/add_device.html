@@ -1,6 +1,30 @@
 {% extends 'junox/base.html' %}
 
 {% block content %}
+<style>
+    /* Clean Terminal UI - No Scrollbars */
+    .xterm-viewport,
+    .xterm-helper-textarea,
+    .xterm-scroll-area {
+        width: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        display: none !important;
+    }
+
+    .xterm-screen {
+        overflow: hidden !important;
+    }
+
+    /* Optional: Slight padding to make text breathe */
+    #terminal {
+        padding: 8px;
+    }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.1.0/css/xterm.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.1.0/lib/xterm.min.js"></script>
+
 <div class="max-w-2xl mx-auto">
     <div class="mb-8">
         <a href="{% url 'junox:device_dashboard' %}"
@@ -17,51 +41,29 @@
     </div>
     {% endif %}
 
-    {% if messages %}
-    <div class="space-y-4 mb-6">
-        {% for message in messages %}
-        <div
-            class="p-4 rounded-xl border {% if message.tags == 'success' %} bg-emerald-500/10 border-emerald-500/50 text-emerald-200 {% else %} bg-red-500/10 border-red-500/50 text-red-200 {% endif %} flex items-center shadow-lg">
-            <span class="mr-3">
-                {% if message.tags == 'success' %} ✅ {% else %} ⚠️ {% endif %}
-            </span>
-            <span class="text-sm">
-                {{ message|safe }} </span>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+
 
     <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-8">
         <form method="POST" class="space-y-6">
             {% csrf_token %}
-
             <div>
                 <label for="hostname" class="block text-sm font-semibold text-slate-300 mb-2">Hostname or IP
                     Address</label>
-                <input type="text" name="hostname" id="hostname" required
-                    placeholder="e.g. 192.168.1.1 or srx-branch-01"
-                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
+                <input type="text" name="hostname" id="hostname" required placeholder="e.g. 192.168.1.1"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label for="username" class="block text-sm font-semibold text-slate-300 mb-2">Username</label>
                     <input type="text" name="username" id="username" required placeholder="NETCONF user"
-                        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
+                        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-semibold text-slate-300 mb-2">Password</label>
                     <input type="password" name="password" id="password" required placeholder="••••••••"
-                        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
+                        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
                 </div>
-            </div>
-
-            <div class="bg-blue-600/5 border border-blue-500/20 rounded-lg p-4 flex gap-3">
-                <span class="text-blue-400">ℹ️</span>
-                <p class="text-xs text-slate-400 leading-relaxed">
-                    Ensure NETCONF over SSH (port 830) is enabled on the target device for discovery and management.
-                </p>
             </div>
 
             <div class="pt-4">
@@ -72,5 +74,66 @@
             </div>
         </form>
     </div>
+
+    {% if messages %}
+    <div class="space-y-4 mb-6">
+        {% for message in messages %}
+        <div
+            class="p-4 rounded-xl border {% if message.tags == 'success' %} bg-emerald-500/10 border-emerald-500/50 text-emerald-200 {% else %} bg-red-500/10 border-red-500/50 text-red-200 {% endif %} flex items-center shadow-lg">
+            <span class="mr-3">{% if message.tags == 'success' %} ✅ {% else %} ⚠️ {% endif %}</span>
+            <span class="text-sm">{{ message|safe }} </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div id="terminal-container"
+        class="mt-6 rounded-xl border border-slate-700 bg-black overflow-hidden shadow-2xl hidden">
+        <div class="bg-slate-800/50 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
+            <span class="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Live Output Stream</span>
+            <div class="flex gap-1.5">
+                <div class="w-2 h-2 rounded-full bg-slate-700"></div>
+                <div class="w-2 h-2 rounded-full bg-slate-700"></div>
+                <div class="w-2 h-2 rounded-full bg-slate-700"></div>
+            </div>
+        </div>
+        <div id="terminal"></div>
+    </div>
 </div>
+
+<script>
+    function startLiveLogs(jobId) {
+        document.getElementById('terminal-container').classList.remove('hidden');
+
+        const term = new Terminal({
+            scrollback: 0,
+            disableStdin: true,
+            cursorBlink: false,
+            convertEol: true, // Crucial for proper line breaks
+            theme: {
+                background: '#000000',
+                cursor: 'transparent'
+            },
+            fontSize: 13,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        });
+
+        term.open(document.getElementById('terminal'));
+        term.writeln('\x1b[36mℹ\x1b[0m \x1b[32m--- Device registration process started ---\x1b[0m');
+
+        const socket = new WebSocket(`ws://127.0.0.1:8000/ws/logs/${jobId}`);
+
+        socket.onmessage = (event) => {
+            term.writeln(event.data);
+        };
+
+        socket.onclose = () => {
+            term.writeln('\n\x1b[33m--- Stream Closed ---\x1b[0m');
+        };
+    }
+
+    {% if job_id %}
+    startLiveLogs("{{ job_id }}");
+    {% endif %}
+</script>
 {% endblock %}
