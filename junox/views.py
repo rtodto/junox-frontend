@@ -194,51 +194,45 @@ def device_detail_view(request, device_id, hostname):
 
 
 
+from django.http import JsonResponse # Add this import
+
+from django.http import JsonResponse
 
 def add_device_view(request):
-    """Here we send request to FastAPI to add a new device
-       but the API call is inside services.py module.
-    """
-
     token = request.session.get('auth_token')
     if not token:
         return redirect('junox:login')
 
+    session_id = None # Initialize so it's always in scope
+
     if request.method == 'POST':
-        # 1. Extract data from the form
         hostname = request.POST.get('hostname')
         user = request.POST.get('username')
         pwd = request.POST.get('password')
+        session_id = request.POST.get('session_id')
 
-        # 2. Call the service
-        result = service_add_device(token, hostname, user, pwd)
+        # Call the API service
+        result = service_add_device(token, hostname, user, pwd, session_id)
+
+        # Check if the request came from JavaScript (Fetch)
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
         if result["success"]:
-            # Extract the specific fields from the dictionary
-            job_id = result["data"].get('job_id')
-            monitor_url = result["data"].get('monitor_url')
-
-            monitor_url = settings.JUNOX_FRONTEND_URL + "/junox/jobs_list/?q=" + job_id
-            # Format a professional HTML message
-            # job_id[:8] just shows the first 8 characters of the UUID to keep it tidy
-            message_html = mark_safe(
-                f"Device <strong>{hostname}</strong> registration request dispatched successfully with "
-                f"<strong>JOB-ID:</strong> "
-                # f"<span class='font-mono text-xs'>{job_id[:8]}</span> "
-                f"<a href='{monitor_url}' target='_blank' class='ml-2 underline text-blue-400 font-bold'>"
-                f"{job_id[:8]}</a>"
-                f"<br>You can watch the live progress below"
-            )
-
-            messages.success(request, message_html)
-            return render(request, 'junox/add_device.html', {
-                'job_id': job_id,
-                'monitor_url': monitor_url
-            })
+            if is_ajax:
+                # Return JSON to keep the page still and terminal open
+                return JsonResponse({"status": "processing", "job_id": result["data"].get('job_id')})
+            
+            # Standard flow: Redirect to dashboard
+            messages.success(request, f"Device {hostname} registration initiated.")
+            return redirect('junox:device_dashboard')
         else:
-            messages.error(request, result["error"])    
+            if is_ajax:
+                # Return 400 so the terminal can print the error message
+                return JsonResponse({"error": result["error"]}, status=400)
+            
+            messages.error(request, result["error"])
 
-    return render(request, 'junox/add_device.html')
+    return render(request, 'junox/add_device.html', {'session_id': session_id})
 
 
 def jobs_list_view(request):
@@ -301,3 +295,28 @@ def check_session(request):
             return redirect('junox:login')
     except requests.exceptions.RequestException:
         return redirect('junox:login')
+
+def dashboard_view(request):
+    # 1. Fetch aggregated data from FastAPI
+    # Ensure this URL matches your internal docker/local network address
+    token = request.session.get('auth_token')
+    api_url = f"{settings.API_URL}/devices/inventory/stats"
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    context = {
+        "stats": {}
+    }
+
+    try:
+        # 2. Get the data (set a timeout so the dashboard doesn't hang if API is down)
+        response = requests.get(api_url, timeout=3, headers=headers)
+        if response.status_code == 200:
+            context["stats"] = response.json()
+        else:
+            print(f"Error fetching stats: {response.status_code}")
+    except Exception as e:
+        print(f"API Connection Error: {e}")
+        # We pass empty stats so the page loads (just without charts)
+
+    return render(request, 'junox/dashboard.html', context)
+

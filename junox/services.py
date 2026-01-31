@@ -107,7 +107,7 @@ def service_get_all_jobs(token):
         return {"success": False, "error": str(e)}
 
 
-def service_add_device(token, hostname, username, password):
+def service_add_device(token, hostname, username, password, session_id):
     """
     Adds a new device to the inventory using FastAPI.
     """
@@ -121,7 +121,8 @@ def service_add_device(token, hostname, username, password):
     # Form-urlencoded data, we move data to payload, don't prefer in the URL.
     payload = {
             'username': username,
-            'password': password
+            'password': password,
+            'session_id': session_id
         }
 
     try:

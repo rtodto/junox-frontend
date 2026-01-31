@@ -1,1 +1,98 @@
 {% extends 'junox/base.html' %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <div class="mb-8 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-white tracking-tight">Network Overview</h1>
+            <p class="text-slate-400 mt-1">Real-time breakdown of inventory.</p>
+        </div>
+        <a href="{% url 'junox:add_device' %}"
+            class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            + Add Device
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        {% if stats %}
+        {% for category, data in stats.items %}
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-lg flex flex-col items-center">
+            <h3 class="text-slate-400 text-xs uppercase tracking-widest font-bold mb-6 w-full text-left">
+                {{ category|cut:"_" }}
+            </h3>
+
+            <div class="w-full h-64 relative">
+                <canvas id="chart-{{ category }}"></canvas>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="col-span-full text-center py-12 text-slate-500">
+            <p>No inventory data available or API connection failed.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Safely inject Django context into JavaScript
+    const statsData = {{ stats| safe }};
+
+    // Define a nice color palette for the slices
+    const chartColors = [
+        '#3b82f6', // Blue
+        '#10b981', // Emerald
+        '#f59e0b', // Amber
+        '#ef4444', // Red
+        '#8b5cf6', // Violet
+        '#ec4899', // Pink
+        '#06b6d4', // Cyan
+        '#6366f1'  // Indigo
+    ];
+
+    // Generic function to build charts
+    Object.keys(statsData).forEach(category => {
+        const canvas = document.getElementById(`chart-${category}`);
+
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const dataMap = statsData[category];
+
+            new Chart(ctx, {
+                type: 'doughnut', // 'pie' or 'doughnut' look best here
+                data: {
+                    labels: Object.keys(dataMap),
+                    datasets: [{
+                        data: Object.values(dataMap),
+                        backgroundColor: chartColors,
+                        borderColor: '#0f172a', // Matches slate-900 bg
+                        borderWidth: 2,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#cbd5e1', // Light text for dark mode
+                                font: { size: 11 },
+                                boxWidth: 12
+                            }
+                        }
+                    },
+                    layout: {
+                        padding: 10
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

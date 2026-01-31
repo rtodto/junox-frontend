@@ -16,9 +16,8 @@
         overflow: hidden !important;
     }
 
-    /* Optional: Slight padding to make text breathe */
     #terminal {
-        padding: 8px;
+        padding: 12px;
     }
 </style>
 
@@ -35,17 +34,11 @@
         <p class="text-slate-400 mt-1">Add a new Junos node to the management portal.</p>
     </div>
 
-    {% if error %}
-    <div class="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm">
-        <strong>Error:</strong> {{ error }}
-    </div>
-    {% endif %}
-
-
-
     <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-8">
-        <form method="POST" class="space-y-6">
+        <form method="POST" id="registrationForm" class="space-y-6">
             {% csrf_token %}
+            <input type="hidden" name="session_id" id="session_id_input">
+
             <div>
                 <label for="hostname" class="block text-sm font-semibold text-slate-300 mb-2">Hostname or IP
                     Address</label>
@@ -66,26 +59,22 @@
                 </div>
             </div>
 
+            <div class="flex items-center gap-3 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                <input type="checkbox" id="debug_mode"
+                    class="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500">
+                <label for="debug_mode" class="text-sm font-medium text-slate-300 cursor-pointer">
+                    Show live debug logs during registration
+                </label>
+            </div>
+
             <div class="pt-4">
-                <button type="submit"
-                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2">
-                    <span>Register Device</span>
+                <button type="submit" id="submitBtn"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg shadow-blue-900/40">
+                    Register Device
                 </button>
             </div>
         </form>
     </div>
-
-    {% if messages %}
-    <div class="space-y-4 mb-6">
-        {% for message in messages %}
-        <div
-            class="p-4 rounded-xl border {% if message.tags == 'success' %} bg-emerald-500/10 border-emerald-500/50 text-emerald-200 {% else %} bg-red-500/10 border-red-500/50 text-red-200 {% endif %} flex items-center shadow-lg">
-            <span class="mr-3">{% if message.tags == 'success' %} ✅ {% else %} ⚠️ {% endif %}</span>
-            <span class="text-sm">{{ message|safe }} </span>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
 
     <div id="terminal-container"
         class="mt-6 rounded-xl border border-slate-700 bg-black overflow-hidden shadow-2xl hidden">
@@ -102,38 +91,99 @@
 </div>
 
 <script>
-    function startLiveLogs(jobId) {
-        document.getElementById('terminal-container').classList.remove('hidden');
+    const form = document.getElementById('registrationForm');
+    const debugCheckbox = document.getElementById('debug_mode');
+    const terminalContainer = document.getElementById('terminal-container');
+    const sessionInput = document.getElementById('session_id_input');
+    const submitBtn = document.getElementById('submitBtn');
 
-        const term = new Terminal({
-            scrollback: 0,
-            disableStdin: true,
-            cursorBlink: false,
-            convertEol: true, // Crucial for proper line breaks
-            theme: {
-                background: '#000000',
-                cursor: 'transparent'
-            },
+    let term;
+    let terminalInitialized = false;
+
+    // 1. Prepare Session ID for the form
+    const sessionId = crypto.randomUUID();
+    sessionInput.value = sessionId;
+
+    // --- TRIGGER: Show/Hide terminal window on checkbox click ---
+    debugCheckbox.addEventListener('change', () => {
+        if (debugCheckbox.checked) {
+            // Show the window
+            terminalContainer.classList.remove('hidden');
+
+            // Initialize xterm if it hasn't been already
+            if (!terminalInitialized) {
+                initTerminalDisplay();
+            }
+        } else {
+            // Hide the window
+            terminalContainer.classList.add('hidden');
+        }
+    });
+
+    function initTerminalDisplay() {
+        terminalInitialized = true;
+        term = new Terminal({
+            convertEol: true,
             fontSize: 13,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            theme: { background: '#000000', cursor: '#50fa7b' },
+            fontFamily: 'ui-monospace, monospace',
         });
-
         term.open(document.getElementById('terminal'));
-        term.writeln('\x1b[36mℹ\x1b[0m \x1b[32m--- Device registration process started ---\x1b[0m');
 
-        const socket = new WebSocket(`ws://127.0.0.1:8000/ws/logs/${jobId}`);
-
-        socket.onmessage = (event) => {
-            term.writeln(event.data);
-        };
-
-        socket.onclose = () => {
-            term.writeln('\n\x1b[33m--- Stream Closed ---\x1b[0m');
-        };
+        term.writeln('\x1b[32m✔\x1b[0m Debug display initialized.');
+        term.writeln('\x1b[90mWaiting for registration to start...\x1b[0m');
     }
 
-    {% if job_id %}
-    startLiveLogs("{{ job_id }}");
-    {% endif %}
+    // --- TRIGGER: Only start network activity on Submit ---
+    form.addEventListener('submit', async (e) => {
+        if (debugCheckbox.checked) {
+            e.preventDefault(); // Stay on page to see logs
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Registering...';
+
+            term.writeln('\n\x1b[35m🚀 Requesting registration via API...\x1b[0m');
+
+            // Connect WebSocket
+            const socket = new WebSocket(`ws://127.0.0.1:8000/ws/logs/${sessionId}`);
+
+            socket.onmessage = (event) => {
+                term.writeln(event.data);
+
+                // If we see [COMPLETED] or [FAILED], re-enable the button
+                if (event.data.includes('[COMPLETED]') || event.data.includes('[FAILED]')) {
+
+                    // We wait 2 seconds so the user sees the final message
+                    // before we kill the network connection.
+                    setTimeout(() => {
+                        if (socket.readyState === WebSocket.OPEN) {
+                            socket.close();
+                        }
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = 'Register Device';
+                    }, 2000);
+                }
+            };
+
+            socket.onclose = () => {
+                term.writeln('\n\x1b[33m--- Debug session ended --- \x1b[0m');
+            };
+            socket.onerror = () => term.writeln('\x1b[31m❌ WebSocket Connection Error\x1b[0m');
+
+            // Send Form Data via Fetch
+            const formData = new FormData(form);
+            try {
+                await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+            } catch (err) {
+                term.writeln('\x1b[31m❌ Error: Failed to reach the server.\x1b[0m');
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Register Device';
+            }
+        }
+    });
 </script>
 {% endblock %}
