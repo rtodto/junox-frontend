@@ -5,14 +5,36 @@ import requests
 from .services import *
 from django.conf import settings
 from django.utils.safestring import mark_safe
+from functools import wraps
+from django.http import JsonResponse
 
 API_URL = settings.API_URL
 
+#DECORATOR
+def token_required(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.session.get('auth_token'):
+            # User is not logged in, send them to login page
+            return redirect('junox:login_junox')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
 
-def login_view(request):
-    return render(request, 'junox/login.html')
+
+#@token_required
+# def login_view(request):
+#     # If user has a token in their session, send them to dashboard
+#     if request.session.get('auth_token'):
+#         return redirect('junox:dashboard')
+    
+#     # Otherwise, send them to login
+#     return render(request, 'junox/login.html')
+
 
 def login_junox(request):
+    if request.session.get('auth_token'):
+        return redirect('junox:dashboard')
+
     if request.method == "POST":
         username = request.POST.get('username')
         password = request.POST.get('password')
@@ -52,26 +74,9 @@ def login_junox(request):
 
     return render(request, 'junox/login.html')
 
-
-def dashboard_view(request):
-    
-    username = request.session.get('username')
-    token = request.session.get('auth_token')
-    
-    if not token:
-        return redirect('junox:login')
-
-    device_list = get_device_list(token)
-    if not device_list:
-        return render(request, 'junox/dashboard.html', {'error': 'API Connection Error'})
-    
-    return render(request, 'junox/dashboard.html', {'device_list': device_list})
-
-
+@token_required
 def device_dashboard_view(request):
     token = request.session.get('auth_token')
-    if not token:
-        return redirect('junox:login')
     
     # 1. Get Search Query and Page Number
     search_query = request.GET.get('q', '').strip()
@@ -135,10 +140,10 @@ def device_dashboard_view(request):
     }
     return render(request, 'junox/device_dasboard.html', context)
 
+
+@token_required
 def assign_vlan_view(request):
     token = request.session.get('auth_token')
-    if not token:
-        return redirect('junox:login')
     
     if request.method == 'POST':
         interface_name = request.POST.get('interface_name')
@@ -159,10 +164,9 @@ def assign_vlan_view(request):
             return redirect('junox:device_detail', device_id=device_id, hostname=hostname)
 
 
+@token_required
 def vlan_catalog_view(request):
     token = request.session.get('auth_token')
-    if not token:
-        return redirect('junox:login')
     
     result = service_get_vlan_catalog(token)
     if not result.get("success"):
@@ -172,11 +176,10 @@ def vlan_catalog_view(request):
     return render(request, 'junox/vlan_catalog.html', {'catalog': result['vlans']})
 
 
+@token_required
 def device_detail_view(request, device_id, hostname):
 
     token = request.session.get('auth_token')
-    if not token:
-        return redirect('junox:login')
     
     interfaces = get_device_interfaces(token, device_id)
     vlans = service_get_device_vlans(token, device_id)
@@ -193,15 +196,9 @@ def device_detail_view(request, device_id, hostname):
                })
 
 
-
-from django.http import JsonResponse # Add this import
-
-from django.http import JsonResponse
-
+@token_required
 def add_device_view(request):
     token = request.session.get('auth_token')
-    if not token:
-        return redirect('junox:login')
 
     session_id = None # Initialize so it's always in scope
 
@@ -234,11 +231,9 @@ def add_device_view(request):
 
     return render(request, 'junox/add_device.html', {'session_id': session_id})
 
-
+@token_required
 def jobs_list_view(request):
     token = request.session.get('auth_token')
-    if not token:
-        return redirect('junox:login')
 
     result = service_get_all_jobs(token)
     all_jobs = result.get('jobs', [])
@@ -275,27 +270,25 @@ def jobs_list_view(request):
 
 def logout_view(request):
     request.session.flush() # Completely destroys the session and cookies
-    return redirect('junox:login')
+    return redirect('junox:login_junox')
 
-
+@token_required
 def check_session(request):
     """We check if the user still has a valid session"""
     
     #Get the token from the session
     token = request.session.get('auth_token')
-    if not token:
-        return redirect('junox:login')
-    
     
     try:
         response = requests.get(API_URL + "/ping", headers={'Authorization': f'Bearer {token}'})
         if response.status_code == 200:
             return redirect('junox:dashboard')
         else:
-            return redirect('junox:login')
+            return redirect('junox:login_junox')
     except requests.exceptions.RequestException:
-        return redirect('junox:login')
+        return redirect('junox:login_junox')
 
+@token_required
 def dashboard_view(request):
     # 1. Fetch aggregated data from FastAPI
     # Ensure this URL matches your internal docker/local network address

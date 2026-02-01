@@ -1,9 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-slate-950">
 
 <head>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+    <link rel="stylesheet" href="{% static 'junox/css/main.css' %}">
     <title>JunoX - {% block title %}Dashboard{% endblock %}</title>
+    <link rel="icon" href="{% static 'junox/images/favicon.svg' %}">
 </head>
 
 <body class="h-full flex overflow-hidden">
@@ -150,7 +153,7 @@
             fetch("{% url 'junox:check_session' %}")
                 .then(response => {
                     if (response.status === 401) {
-                        window.location.href = "{% url 'junox:login' %}?reason=timeout";
+                        window.location.href = "{% url 'junox:login_junox' %}?reason=timeout";
                     }
                 })
                 .catch(error => console.error("Error checking session:", error));

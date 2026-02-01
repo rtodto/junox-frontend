@@ -131,7 +131,7 @@
         term.open(document.getElementById('terminal'));
 
         term.writeln('\x1b[32m✔\x1b[0m Debug display initialized.');
-        term.writeln('\x1b[90mWaiting for registration to start...\x1b[0m');
+        term.writeln('\x1b[90m--- Waiting for registration to start ---\x1b[0m');
     }
 
     // --- TRIGGER: Only start network activity on Submit ---
@@ -140,9 +140,9 @@
             e.preventDefault(); // Stay on page to see logs
 
             submitBtn.disabled = true;
-            submitBtn.innerText = 'Registering...';
+            submitBtn.innerText = 'Registration in Progress...';
 
-            term.writeln('\n\x1b[35m🚀 Requesting registration via API...\x1b[0m');
+            term.writeln('\n\x1b[35m--- Requesting registration via API ---\x1b[0m');
 
             // Connect WebSocket
             const socket = new WebSocket(`ws://127.0.0.1:8000/ws/logs/${sessionId}`);

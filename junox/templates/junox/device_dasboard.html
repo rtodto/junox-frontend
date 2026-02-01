@@ -1,12 +1,13 @@
 {% extends 'junox/base.html' %}
 
 {% block content %}
+
+
 <div class="mb-8 flex items-center justify-between">
     <div>
         <h2 class="text-3xl font-bold text-white tracking-tight">Device Inventory</h2>
-        <p class="text-slate-400 mt-1">Manage and monitor your Junos network assets.</p>
+        <p class="text-slate-400 mt-1">Manage and monitor your multi-vendor network assets.</p>
     </div>
-
 </div>
 
 {% if messages %}
@@ -55,11 +56,11 @@
                     <th class="px-6 py-4 font-semibold">Hostname</th>
                     <th class="px-6 py-4 font-semibold">IP Address</th>
                     <th class="px-6 py-4 font-semibold">Type</th>
-                    <th class="px-6 py-4 font-semibold">Brand</th>
+                    <th class="px-6 py-4 font-semibold">Vendor</th>
                     <th class="px-6 py-4 font-semibold">Model</th>
                     <th class="px-6 py-4 font-semibold">OS Version</th>
                     <th class="px-6 py-4 font-semibold">Serial Number</th>
-                    <th class="px-6 py-4 font-semibold text-center">Status</th>
+                    <th class="px-6 py-4 font-semibold text-center">Sync Status</th>
                     <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
             </thead>
@@ -86,13 +87,13 @@
                     </td>
 
                     <td class="px-6 py-4">
-                        <span class="text-xs text-slate-200 capitalize font-medium">{{ device.brand }}</span>
+                        <span class="text-xs text-slate-200 capitalize font-medium">{{ device.vendor }}</span>
                     </td>
 
                     <td class="px-6 py-4 text-sm">{{ device.model }}</td>
 
                     <td class="px-6 py-4">
-                        <span class="text-xs text-green-500 font-mono bg-green-500/5 px-1.5 py-0.5 rounded">
+                        <span class="text-xs text-blue-400 font-mono bg-blue-500/5 px-1.5 py-0.5 rounded">
                             {{ device.os_version }}
                         </span>
                     </td>
@@ -102,11 +103,26 @@
                     </td>
 
                     <td class="px-6 py-4 text-center">
+                        {% if device.sync_status == 'synced' %}
                         <span
-                            class="inline-flex items-center gap-1.5 py-1 px-2 rounded-md bg-green-500/10 text-green-500 text-xs font-medium border border-green-500/20">
-                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                            Online
+                            class="inline-flex items-center gap-1.5 py-1 px-2 rounded-md bg-green-500/10 text-green-500 text-[10px] font-bold uppercase border border-green-500/20">
+                            <span
+                                class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                            Synced
                         </span>
+                        {% elif device.sync_status == 'failed' %}
+                        <span
+                            class="inline-flex items-center gap-1.5 py-1 px-2 rounded-md bg-rose-500/10 text-rose-500 text-[10px] font-bold uppercase border border-rose-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                            Failed
+                        </span>
+                        {% else %}
+                        <span
+                            class="inline-flex items-center gap-1.5 py-1 px-2 rounded-md bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase border border-blue-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-spin"></span>
+                            Pending
+                        </span>
+                        {% endif %}
                     </td>
 
                     <td class="px-6 py-4 text-right">
@@ -157,25 +173,12 @@
                     class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700 transition-colors">&rarr;</a>
                 {% endif %}
             </nav>
-
-            <form method="GET" class="flex items-center gap-2 border-l border-slate-800 pl-6">
-                <input type="hidden" name="q" value="{{ search_query|default:'' }}">
-
-                <span class="text-xs text-slate-500 uppercase font-semibold tracking-wider">Jump to</span>
-                <select name="page" onchange="this.form.submit()"
-                    class="bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-xs text-white focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer hover:bg-slate-700 transition-all">
-                    {% for p_obj in page_numbers_all %}
-                    <option value="{{ p_obj.num }}" {{ p_obj.status }}>
-                        Page {{ p_obj.num }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </form>
         </div>
     </div>
 </div>
 
 <style>
+    /* Custom Scrollbar */
     .custom-scrollbar::-webkit-scrollbar {
         height: 6px;
     }
@@ -191,6 +194,21 @@
 
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #334155;
+    }
+
+    /* Custom Animation for Pending */
+    @keyframes spin-slow {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .animate-spin {
+        animation: spin-slow 2s linear infinite;
     }
 </style>
 {% endblock %}

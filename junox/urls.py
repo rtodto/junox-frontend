@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 
 app_name = 'junox'
 
 urlpatterns = [
-    path('', views.login_view, name='login'),
+    #path('', views.login_view, name='login'),
+    path('', RedirectView.as_view(pattern_name='junox:login_junox', permanent=False)),
     path('login_junox/', views.login_junox, name='login_junox'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('logout/', views.logout_view, name='logout'),

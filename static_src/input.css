@@ -1,0 +1,6 @@
+/* static_src/input.css */
+@import "tailwindcss";
+
+/* Tell Tailwind where your Django templates are */
+@source "../junox/templates/**/*.html";
+@source "../junox/**/*.py";
