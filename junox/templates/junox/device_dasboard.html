@@ -1,4 +1,5 @@
 {% extends 'junox/base.html' %}
+{% block container_class %}max-w-[95%] mx-auto{% endblock %}
 
 {% block content %}
 
@@ -60,6 +61,8 @@
                     <th class="px-6 py-4 font-semibold">Model</th>
                     <th class="px-6 py-4 font-semibold">OS Version</th>
                     <th class="px-6 py-4 font-semibold">Serial Number</th>
+                    <th class="px-6 py-4 font-semibold">Region</th>
+                    <th class="px-6 py-4 font-semibold">Site</th>
                     <th class="px-6 py-4 font-semibold text-center">Sync Status</th>
                     <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -102,6 +105,14 @@
                         {{ device.serialnumber }}
                     </td>
 
+                    <td class="px-6 py-4 font-mono text-xs text-slate-500 tracking-wider">
+                        {{ device.region }}
+                    </td>
+
+                    <td class="px-6 py-4 font-mono text-xs text-slate-500 tracking-wider">
+                        {{ device.site }}
+                    </td>
+
                     <td class="px-6 py-4 text-center">
                         {% if device.sync_status == 'synced' %}
                         <span
@@ -133,7 +144,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="10" class="px-6 py-20 text-center text-slate-500 italic">No matching devices found.
+                    <td colspan="12" class="px-6 py-20 text-center text-slate-500 italic">No matching devices found.
                     </td>
                 </tr>
                 {% endif %}

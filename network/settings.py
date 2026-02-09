@@ -34,9 +34,15 @@ SECRET_KEY = 'django-insecure-^k*2c+mfnr5%2yg@^rp6gp!0$xur_=$d7sck8455vmx!lao9-2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+ "junox.rtodto.net",
+ "localhost",
+ "127.0.0.1"
+]
 
-
+CSRF_TRUSTED_ORIGINS = [
+    "https://junox.rtodto.net",
+]
 # Application definition
 
 INSTALLED_APPS = [

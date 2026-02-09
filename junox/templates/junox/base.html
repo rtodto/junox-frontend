@@ -126,7 +126,7 @@
     </aside>
 
     <main class="flex-1 overflow-y-auto bg-slate-950 p-8 text-slate-200">
-        <div class="max-w-7xl mx-auto">
+        <div class="{% block container_class %}max-w-7xl mx-auto{% endblock %}">
             {% block content %}
             {% endblock %}
         </div>
